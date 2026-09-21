@@ -1516,4 +1516,36 @@ export const APIKEY_PROVIDERS_GATEWAYS = {
     apiHint:
       "Create an API key at https://seekai.cc, then paste it here as a Bearer token. OpenAI-compatible base URL: https://seekai.cc/v1.",
   },
+  // GapGPT (https://gapgpt.app) — Iranian relay. Regional coverage for Iran,
+  // where direct OpenAI/Anthropic/Google access is blocked: a Persian storefront
+  // sells API keys in minutes and serves a ~129-id catalog (plus native
+  // gapgpt-* models) from api.gapgpt.app/v1. NewAPI-style prepaid billing.
+  gapgpt: {
+    id: "gapgpt",
+    alias: "gapgpt",
+    name: "GapGPT",
+    icon: "storefront",
+    color: "#0EA5E9",
+    textIcon: "GG",
+    passthroughModels: true,
+    website: "https://gapgpt.app",
+    apiHint:
+      "Buy an API key at https://gapgpt.app (Persian storefront), then use https://api.gapgpt.app/v1 as the OpenAI-compatible base URL. Iranian-hosted — reachable from Iran where direct OpenAI/Anthropic access is blocked.",
+  },
+  // Hooshyar (https://wqai.morvism.ir) — Iranian gateway. Same regional role:
+  // a 10-id catalog (Claude/GPT/Grok/Kimi/GLM incl. a free-tier id) behind one
+  // OpenAI-compatible surface. Keys are issued by the operator (no public
+  // self-service signup documented); issued tokens expire and need renewal.
+  hooshyar: {
+    id: "hooshyar",
+    alias: "hooshyar",
+    name: "Hooshyar",
+    icon: "smart_toy",
+    color: "#DC2626",
+    textIcon: "HR",
+    passthroughModels: true,
+    website: "https://wqai.morvism.ir",
+    apiHint:
+      "Iranian-hosted OpenAI-compatible gateway at https://wqai.morvism.ir/v1. Keys are issued by the service operator (no public self-service signup documented); tokens expire and must be renewed.",
+  },
 };
