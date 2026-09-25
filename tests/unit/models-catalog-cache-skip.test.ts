@@ -59,3 +59,15 @@ test("routing-only connection writes skip the model-catalog cache bust", () => {
     );
   }
 });
+
+test("OAuth token rotation persists with skipModelCatalog", () => {
+  const source = readFileSync(join(REPO_ROOT, "src/sse/services/tokenRefresh.ts"), "utf8");
+  assert.ok(
+    source.includes("catalogRelevant") && source.includes("skipModelCatalog: true"),
+    "updateProviderCredentials must pass { skipModelCatalog: true } for credential-only updates (token refreshes fire continuously and otherwise cold-rebuild /v1/models)"
+  );
+  assert.ok(
+    source.includes("updates.providerSpecificData !== undefined"),
+    "the skip must exclude updates carrying providerSpecificData (can change catalog-relevant state)"
+  );
+});
