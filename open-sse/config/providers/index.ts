@@ -27,6 +27,7 @@ import { traeProvider } from "./registry/trae/index.ts";
 import { muse_spark_webProvider } from "./registry/muse-spark-web/index.ts";
 import { lmarenaProvider } from "./registry/lmarena/index.ts";
 import { kilocodeProvider } from "./registry/kilocode/index.ts";
+import { workbuddyProvider } from "./registry/workbuddy/index.ts";
 import { githubProvider } from "./registry/github/index.ts";
 import { gheCopilotProvider } from "./registry/ghe-copilot/index.ts";
 import { difyProvider } from "./registry/dify/index.ts";
@@ -164,6 +165,7 @@ import { apmixProvider } from "./registry/apmix/index.ts";
 import { scalewayProvider } from "./registry/scaleway/index.ts";
 import { agentrouterProvider } from "./registry/agentrouter/index.ts";
 import { zaiProvider } from "./registry/zai/index.ts";
+import { bigmodelProvider } from "./registry/bigmodel/index.ts";
 import { waferProvider } from "./registry/wafer/index.ts";
 import { huggingchatProvider } from "./registry/huggingchat/index.ts";
 import { yuanbao_webProvider } from "./registry/yuanbao-web/index.ts";
@@ -307,6 +309,7 @@ export const REGISTRY: Record<string, RegistryEntry> = {
   "muse-spark-web": muse_spark_webProvider,
   lmarena: lmarenaProvider,
   kilocode: kilocodeProvider,
+  workbuddy: workbuddyProvider,
   github: githubProvider,
   "ghe-copilot": gheCopilotProvider,
   dify: difyProvider,
@@ -445,6 +448,7 @@ export const REGISTRY: Record<string, RegistryEntry> = {
   scaleway: scalewayProvider,
   agentrouter: agentrouterProvider,
   zai: zaiProvider,
+  bigmodel: bigmodelProvider,
   huggingchat: huggingchatProvider,
   "yuanbao-web": yuanbao_webProvider,
   "notrack-web": notrack_webProvider,

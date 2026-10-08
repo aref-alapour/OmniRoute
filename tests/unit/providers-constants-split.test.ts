@@ -52,7 +52,7 @@ import assert from "node:assert/strict";
 const P = await import("../../src/shared/constants/providers.ts");
 
 // Apmix (#14821) adds one apikey/regional entry — 246.
-const APIKEY_PROVIDER_COUNT = 246;
+const APIKEY_PROVIDER_COUNT = 247;
 
 test("barrel still exports every catalog + key helpers", () => {
   for (const name of [
