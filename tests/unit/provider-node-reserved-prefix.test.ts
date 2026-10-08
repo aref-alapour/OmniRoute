@@ -200,8 +200,15 @@ test("shared set size includes live REGISTRY and retired Designer + Felo + Qwen 
   // Reconciled 2026-09-23: #14468 (suno retirement) landed on the tip first, which already
   // measured 413 there; with gemini-business also retired on top of it the live set is 412
   // (413 -> 412). Measured, not hand-derived: RESERVED_PROVIDER_PREFIXES.size on this head.
-  // #14821 registers Apmix (id == alias): +1 REGISTRY member (412 -> 413).
-  assert.equal(RESERVED_PREFIX_COUNT, 413);
+  // origin/release/v3.8.52 already measures 413 (test still 412, inherited).
+  // onomeo registers id "onomeo" with the same alias — one REGISTRY member (413 -> 414).
+  // Unifically (#14182) registers id "unifically" with the same alias — one REGISTRY member
+  // (414 -> 415). BeatAPI (#14875) registers id "beatapi" with an identical alias — one more
+  // (415 -> 416). Measured, not hand-derived: RESERVED_PROVIDER_PREFIXES.size.
+  // ChatPlayground (#12690) registers id "chatplayground" and alias "cpl" — two more
+  // (416 -> 418). Measured: RESERVED_PROVIDER_PREFIXES.size after #12690 and #14875 both landed.
+  // Apmix (#14821) registers id "apmix" with the same alias — one more (418 -> 419).
+  assert.equal(RESERVED_PREFIX_COUNT, 419);
 });
 
 test("isReservedProviderPrefix rejects non-string input", () => {
