@@ -190,9 +190,11 @@ test("shared set size includes live REGISTRY and retired Designer + Felo + Qwen 
   // #12648 registers xKiro: id "xkiro" with no separate alias — a single REGISTRY
   // member (412 -> 413).
   // (413 -> 412). Measured, not hand-derived: RESERVED_PROVIDER_PREFIXES.size on this head.
-  // #14308 registers Ashna and Atria (id == alias each): +2 REGISTRY members (412 -> 414);
-  // the same PR boards GapGPT and Hooshyar the same way (+2 more, 414 -> 416).
-  assert.equal(RESERVED_PREFIX_COUNT, 416);
+  // origin/release/v3.8.52 already measures 413 (test still 412, inherited).
+  // onomeo registers id "onomeo" with the same alias — one REGISTRY member (413 -> 414).
+  // #14308 registers Ashna and Atria (id == alias each): +2 REGISTRY members (414 -> 416);
+  // the same PR boards GapGPT and Hooshyar the same way (+2 more, 416 -> 418).
+  assert.equal(RESERVED_PREFIX_COUNT, 418);
 });
 
 test("isReservedProviderPrefix rejects non-string input", () => {
