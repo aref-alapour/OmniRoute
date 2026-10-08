@@ -707,6 +707,29 @@
       "stream": "https://bazaarlink.ai/api/v1/chat/completions"
     }
   },
+  "beatapi": {
+    "format": "openai",
+    "headers": {
+      "apiKey": {
+        "Accept": "text/event-stream",
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      },
+      "nonStream": {
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      },
+      "oauth": {
+        "Accept": "text/event-stream",
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      }
+    },
+    "url": {
+      "nonStream": "https://api.beatapi.io/v1/chat/completions",
+      "stream": "https://api.beatapi.io/v1/chat/completions"
+    }
+  },
   "bedrock": {
     "format": "openai",
     "headers": {
@@ -6034,6 +6057,29 @@
     "url": {
       "nonStream": "https://hermes.ai.unturf.com/v1/chat/completions",
       "stream": "https://hermes.ai.unturf.com/v1/chat/completions"
+    }
+  },
+  "unifically": {
+    "format": "openai",
+    "headers": {
+      "apiKey": {
+        "Accept": "text/event-stream",
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      },
+      "nonStream": {
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      },
+      "oauth": {
+        "Accept": "text/event-stream",
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      }
+    },
+    "url": {
+      "nonStream": "https://api.unifically.com/v1/chat/completions",
+      "stream": "https://api.unifically.com/v1/chat/completions"
     }
   },
   "unorouter": {
