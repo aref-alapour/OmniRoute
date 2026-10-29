@@ -66,6 +66,8 @@ export const OAUTH_PROVIDERS = {
     serviceKinds: ["llm"],
     alias: "if",
     name: "Qoder",
+    authHint:
+      "PAT (pt-): requires local qodercli; plain chat only, no caller tools, buffered streaming and a 45-second chat limit. HTTP keys use DashScope; browser OAuth requires administrator configuration.",
     icon: "water_drop",
     color: "#6366F1",
     subscriptionRisk: true,
@@ -310,6 +312,37 @@ export const OAUTH_PROVIDERS = {
     riskNoticeVariant: "oauth",
     authHint:
       "Tencent CodeBuddy CN (copilot.tencent.com). Sign in via the official CLI device-code flow, or paste a direct API key (sent as Authorization: Bearer). Catalog: GLM / Kimi / MiniMax / DeepSeek / Hunyuan.",
+  },
+  "codebuddy-intl": {
+    id: "codebuddy-intl",
+    serviceKinds: ["llm"],
+    alias: "cbai",
+    name: "CodeBuddy Intl",
+    icon: "smart_toy",
+    color: "#006EFF",
+    textIcon: "CB",
+    website: "https://www.codebuddy.ai",
+    subscriptionRisk: true,
+    riskNoticeVariant: "oauth",
+    authHint:
+      "CodeBuddy International (codebuddy.ai). Sign in via the device-code flow, or paste a direct API key (sent as Authorization: Bearer). Catalog: GLM / Kimi / MiniMax / DeepSeek / Hunyuan.",
+  },
+  workbuddy: {
+    id: "workbuddy",
+    serviceKinds: ["llm"],
+    alias: "wb",
+    name: "WorkBuddy",
+    icon: "smart_toy",
+    color: "#1A73E8",
+    textIcon: "WB",
+    website: "https://www.workbuddy.ai",
+    subscriptionRisk: true,
+    riskNoticeVariant: "oauth",
+    // Not to be confused with CodeBuddy CN above: WorkBuddy is a separate
+    // Tencent agent platform on its own host and account system, and a
+    // CodeBuddy account does not work here.
+    authHint:
+      "Tencent WorkBuddy (www.workbuddy.ai). Authorize the CLI device flow in the popup; OmniRoute then polls for the token and attaches the required X-Product: SaaS header. The model roster is served by the authenticated catalogue, so it is discovered live rather than listed here. WorkBuddy only accepts streaming requests, which OmniRoute accumulates back into a JSON response for non-streaming callers.",
   },
   "muse-code": {
     id: "muse-code",

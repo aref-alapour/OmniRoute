@@ -197,6 +197,21 @@ export function validateProviderSpecificData(
     });
   }
 
+  const toolNameMaxLength = data.toolNameMaxLength;
+  if (
+    toolNameMaxLength !== undefined &&
+    toolNameMaxLength !== null &&
+    (!Number.isInteger(toolNameMaxLength) ||
+      (toolNameMaxLength as number) < 1 ||
+      (toolNameMaxLength as number) > 1024)
+  ) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "providerSpecificData.toolNameMaxLength must be an integer from 1 to 1024",
+      path: ["toolNameMaxLength"],
+    });
+  }
+
   const customUserAgent = data.customUserAgent;
   if (
     customUserAgent !== undefined &&
@@ -293,6 +308,13 @@ export function validateProviderSpecificData(
   }
 
   const blockExtraUsage = data.blockExtraUsage;
+  if (data.allowPaidCredits !== undefined && typeof data.allowPaidCredits !== "boolean") {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "providerSpecificData.allowPaidCredits must be a boolean",
+      path: ["allowPaidCredits"],
+    });
+  }
   if (blockExtraUsage !== undefined && typeof blockExtraUsage !== "boolean") {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,

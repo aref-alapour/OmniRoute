@@ -4,7 +4,6 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { fetch as undiciFetch, Agent } from "undici";
 import {
   buildVercelRelayHeaders,
-  clearDispatcherCache,
   createProxyDispatcher,
   getDefaultDispatcher,
   getProxyRetryDispatcher,
@@ -12,19 +11,21 @@ import {
   isLocalEgressHostname,
   isRelayType,
   isUpstreamHttp2Enabled,
-  normalizeProxyUrl,
   proxyConfigToUrl,
   proxyUrlForLogs,
 } from "./proxyDispatcher.ts";
+import { maybeReapDispatcherPool } from "./proxyDispatcherReap.ts";
 import tlsClient, { type TlsFetchOptions, guardTlsFirstByte } from "./tlsClient.ts";
 import { withUpstreamStatusCapture } from "./upstreamStatusCapture.ts";
 import { stampOwnListenerSelfHop } from "./selfHop.ts";
+import { sanitizeHeaderValues } from "./headerSanitize.ts";
 import { tlsFingerprintProviderAllowed } from "./tlsFingerprintExclusions.ts";
 import { describeFallbackFailure, redactProxyDetailsInMessage } from "./proxyFetchRedaction.ts";
 import { recordFinalTransportOutcome, recordProxiedSuccess } from "./proxyTransportOutcome.ts";
 import { sanitizeTransportError } from "./proxyTransportError.ts";
 import { isProxyReachable } from "@/lib/proxyHealth";
 import { isDirectBypassHost } from "./proxyDirectBypass.ts";
+import { noProxyMatch, resolveEnvProxyUrl } from "./proxyEnv.ts";
 import {
   isControlPlaneProxyDirectFallbackEnabled,
   isFeatureFlagEnabled,
@@ -388,7 +389,7 @@ function isTlsRequestEligible(
   return Object.keys(options).every((key) => TLS_ALLOWED_OPTION_KEYS[key] === true);
 }
 
-function isTlsFallbackReplaySafe(
+function isAmbiguousFailureReplaySafe(
   input: RequestInfo | URL,
   options: FetchWithDispatcherOptions
 ): boolean {
@@ -465,64 +466,6 @@ const originalFetchWithDispatcher = originalFetch as FetchWithDispatcher;
 const proxyContext = patchState.proxyContext;
 const tlsFingerprintContext = patchState.tlsFingerprintContext;
 
-function noProxyMatch(targetUrl) {
-  const noProxy = process.env.NO_PROXY || process.env.no_proxy;
-  if (!noProxy) return false;
-
-  let target;
-  try {
-    target = new URL(targetUrl);
-  } catch {
-    return false;
-  }
-
-  const hostname = target.hostname.toLowerCase();
-  const port = target.port || (target.protocol === "https:" ? "443" : "80");
-  const patterns = noProxy
-    .split(",")
-    .map((p) => p.trim().toLowerCase())
-    .filter(Boolean);
-
-  return patterns.some((pattern) => {
-    if (pattern === "*") return true;
-
-    const [patternHost, patternPort] = pattern.split(":");
-    if (patternPort && patternPort !== port) return false;
-
-    if (!patternHost) return false;
-
-    // Support wildcard matching (e.g. 192.168.* or *.local).
-    // Uses a linear glob scan instead of dynamic RegExp to avoid ReDoS.
-    if (patternHost.includes("*")) {
-      const parts = patternHost.split("*");
-      let pos = 0;
-      let ok = hostname.startsWith(parts[0]);
-      if (ok) {
-        pos = parts[0].length;
-        for (let i = 1; i < parts.length && ok; i++) {
-          const seg = parts[i];
-          if (i === parts.length - 1) {
-            ok = seg === "" || (hostname.endsWith(seg) && hostname.length - seg.length >= pos);
-          } else {
-            const idx = seg ? hostname.indexOf(seg, pos) : pos;
-            if (idx === -1) {
-              ok = false;
-            } else {
-              pos = idx + seg.length;
-            }
-          }
-        }
-      }
-      if (ok) return true;
-    }
-
-    if (patternHost.startsWith(".")) {
-      return hostname.endsWith(patternHost) || hostname === patternHost.slice(1);
-    }
-    return hostname === patternHost || hostname.endsWith(`.${patternHost}`);
-  });
-}
-
 /**
  * A loopback target is this process. Private-network peers are not loopback:
  * they must retain the outbound bound-and-replay policy.
@@ -534,31 +477,6 @@ function isLoopbackHost(hostname: string): boolean {
     .replace(/^::ffff:/i, "")
     .toLowerCase();
   return host === "localhost" || host === "::1" || host === "127.0.0.1" || host.startsWith("127.");
-}
-
-function resolveEnvProxyUrl(targetUrl) {
-  if (noProxyMatch(targetUrl)) return null;
-
-  let protocol;
-  try {
-    protocol = new URL(targetUrl).protocol;
-  } catch {
-    return null;
-  }
-
-  const proxyUrl =
-    protocol === "https:"
-      ? process.env.HTTPS_PROXY ||
-        process.env.https_proxy ||
-        process.env.ALL_PROXY ||
-        process.env.all_proxy
-      : process.env.HTTP_PROXY ||
-        process.env.http_proxy ||
-        process.env.ALL_PROXY ||
-        process.env.all_proxy;
-
-  if (!proxyUrl) return null;
-  return normalizeProxyUrl(proxyUrl, "environment proxy");
 }
 
 export function resolveProxyForRequest(targetUrl) {
@@ -773,6 +691,7 @@ export function hasAmbientProxyContext(): boolean {
   const store = proxyContext.getStore();
   return Boolean(store) && store !== DIRECT_PROXY_CONTEXT;
 }
+export const isDirectFetchContext = () => proxyContext.getStore() === DIRECT_PROXY_CONTEXT;
 
 /**
  * Like {@link runWithProxyContext}, but if the assigned proxy is unreachable or fails
@@ -795,6 +714,10 @@ async function patchedFetchUnrecorded(
   options: FetchWithDispatcherOptions = {},
   deps: ProxyFetchDeps = {}
 ) {
+  // Drop invisible characters (ZWSP, BOM, stray controls) a pasted key can carry;
+  // undici would otherwise reject every request. Clean headers keep the same object.
+  const cleanHeaders = options?.headers ? sanitizeHeaderValues(options.headers) : undefined;
+  if (cleanHeaders !== options?.headers) options = { ...options, headers: cleanHeaders };
   // #13593: a hop back to this listener carries the process self-hop token
   // so admission does not shed it with public traffic.
   stampOwnListenerSelfHop(input, options);
@@ -855,7 +778,7 @@ async function patchedFetchUnrecorded(
           typeof error === "object" &&
           "sessionHadCookies" in error &&
           error.sessionHadCookies === true;
-        if (!isTlsFallbackReplaySafe(input, options) || sessionHadCookies) {
+        if (!isAmbiguousFailureReplaySafe(input, options) || sessionHadCookies) {
           throw sanitizeTransportError(
             error,
             sessionHadCookies
@@ -880,23 +803,19 @@ async function patchedFetchUnrecorded(
       return _nativeFetch(input, options);
     }
     // Direct undici path: bound response-start, fresh-socket retry, and body guard.
+    const directOptions = { ...options, signal: getEffectiveSignal(input, options) };
     const hasNonReplayableBody = requestHasNonReplayableBody(input, options);
+    // Method gating covers response-start ambiguity; connection-error retries remain below.
+    const canReplayResponseStartTimeout = isAmbiguousFailureReplaySafe(input, options);
     const maxAttempts = hasNonReplayableBody ? 1 : 2;
     const _undiciDirect =
       deps.undiciFetch ?? (undiciFetch as unknown as (...args: unknown[]) => Promise<Response>);
     const _nativeFallback =
       (deps.nativeFetch as FetchWithDispatcher | undefined) ?? originalFetchWithDispatcher;
 
-    // A loopback self-request (model sync, auto-discovery, internal routes) must
-    // NOT inherit the outbound-egress policy below. That policy bounds
-    // response-start and then REPLAYS the request on a fresh no-keep-alive
-    // dispatcher, which is designed for a dead keep-alive socket to a remote
-    // host (#10214). Against our own listener there is no such socket to
-    // detect: the replay just doubles how long a slow internal request occupies
-    // one of our OWN inbound slots (30s bound + 30s replay). When a provider
-    // stalls, those self-requests pile up against the chat admission limit and
-    // starve live traffic until Cloudflare cuts the client at its 120s proxy
-    // read timeout (HTTP 524). Send loopback straight through the native fetch.
+    // Loopback self-requests must not inherit remote-egress response-start replay:
+    // replaying against our own listener only doubles inbound-slot occupancy and
+    // can starve live traffic until Cloudflare's 120s read timeout (#10214).
     let isLoopbackTarget = false;
     try {
       isLoopbackTarget = isLoopbackHost(new URL(targetUrl).hostname);
@@ -908,7 +827,7 @@ async function patchedFetchUnrecorded(
     }
 
     let lastDispatcherError: unknown = null;
-    const timeoutFor = directHeadersTimeoutResolver(options, targetUrl);
+    const timeoutFor = directHeadersTimeoutResolver(directOptions, targetUrl);
     let targetHostForLogs = "";
     try {
       targetHostForLogs = new URL(targetUrl).host;
@@ -924,18 +843,19 @@ async function patchedFetchUnrecorded(
         return await directFetchWithBoundedResponseStart(
           input,
           {
-            ...options,
+            ...directOptions,
             dispatcher:
               attempt === 0
                 ? getDefaultDispatcher(hostnameForDispatcher)
                 : getRetryDispatcher(hostnameForDispatcher),
           },
           _undiciDirect,
-          timeoutFor(attempt)
+          timeoutFor(attempt === 0 && canReplayResponseStartTimeout ? 0 : 1)
         );
       } catch (dispatcherError) {
+        if (isCallerAbort(dispatcherError, directOptions.signal)) throw dispatcherError;
         if (isDirectResponseStartTimeout(dispatcherError)) {
-          if (attempt === 0 && maxAttempts > 1) {
+          if (attempt === 0 && maxAttempts > 1 && canReplayResponseStartTimeout) {
             console.warn(
               `[ProxyFetch] Direct response-start timeout (${timeoutFor(0)}ms) on pooled dispatcher — retrying on fresh no-keep-alive dispatcher: ${targetHostForLogs}`
             );
@@ -1018,17 +938,10 @@ async function patchedFetchUnrecorded(
           console.warn(
             `[ProxyFetch] Undici dispatcher failed, falling back to native fetch (after retry): ${describeFetchCause(dispatcherError)}`
           );
-          // On PROXY_UNREACHABLE for local-egress hostnames (host.docker.internal,
-          // *.internal, *.local), drop the cached dispatcher pool: Docker
-          // Desktop's NAT silently drops idle keep-alive sockets inside the
-          // round-robin pool's keepAliveMaxTimeout window, and the pool never
-          // reaps them on PROXY_UNREACHABLE, so the next request must rebuild
-          // with fresh sockets (#4252-style stale-socket burst mitigation).
-          if (
-            isLocalEgressHostname(targetHostForLogs) &&
-            isProxyUnreachableError(dispatcherError)
-          ) {
-            clearDispatcherCache();
+          // Reap the failed pool on PROXY_UNREACHABLE so the next request
+          // rebuilds it with fresh sockets.
+          if (isProxyUnreachableError(dispatcherError)) {
+            maybeReapDispatcherPool(targetHostForLogs, isLocalEgressHostname(targetHostForLogs));
           }
           try {
             return await _nativeFallback(input, options);
@@ -1194,7 +1107,7 @@ async function patchedFetchUnrecorded(
         typeof error === "object" &&
         "sessionHadCookies" in error &&
         error.sessionHadCookies === true;
-      if (!isTlsFallbackReplaySafe(input, options) || sessionHadCookies) {
+      if (!isAmbiguousFailureReplaySafe(input, options) || sessionHadCookies) {
         throw sanitizeTransportError(
           error,
           sessionHadCookies
